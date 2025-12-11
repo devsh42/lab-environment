@@ -1,0 +1,19 @@
+[Unit]
+Description=Splunk Enterprise
+After=network.target
+
+[Service]
+Type=forking
+User={{ splunk_user }}
+Group={{ splunk_group }}
+ExecStart={{ splunk_home }}/bin/splunk start
+ExecStop={{ splunk_home }}/bin/splunk stop
+ExecReload={{ splunk_home }}/bin/splunk restart
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+

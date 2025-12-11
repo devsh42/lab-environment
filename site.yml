@@ -1,0 +1,4 @@
+---
+- import_playbook: playbooks/splunk.yml
+- import_playbook: playbooks/cribl.yml
+

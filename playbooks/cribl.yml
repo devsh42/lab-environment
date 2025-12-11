@@ -1,0 +1,108 @@
+---
+- name: Install and Configure Cribl Stream
+  hosts: cribl_servers
+  become: yes
+  vars:
+    cribl_user: cribl
+    cribl_group: cribl
+    cribl_home: /opt/cribl
+    cribl_version: "4.3.0"  # Update to desired version
+    cribl_tarball: "cribl-{{ cribl_version }}-{{ ansible_system | lower }}-{{ ansible_architecture }}.tar.gz"
+    cribl_download_url: "https://cdn.cribl.io/dl/{{ cribl_version }}/{{ cribl_tarball }}"
+
+  tasks:
+    - name: Check if Cribl is already installed
+      stat:
+        path: "{{ cribl_home }}/bin/cribl"
+      register: cribl_installed
+
+    - name: Create cribl group
+      group:
+        name: "{{ cribl_group }}"
+        state: present
+        system: yes
+
+    - name: Create cribl user
+      user:
+        name: "{{ cribl_user }}"
+        group: "{{ cribl_group }}"
+        home: "{{ cribl_home }}"
+        shell: /bin/bash
+        system: yes
+        create_home: yes
+        state: present
+
+    - name: Install required packages (Debian/Ubuntu)
+      apt:
+        name:
+          - wget
+          - curl
+          - tar
+          - gzip
+        state: present
+        update_cache: yes
+      when: ansible_pkg_mgr == 'apt'
+
+    - name: Create /opt directory if it doesn't exist
+      file:
+        path: /opt
+        state: directory
+        mode: '0755'
+
+    - name: Download Cribl tarball
+      get_url:
+        url: "{{ cribl_download_url }}"
+        dest: "/tmp/{{ cribl_tarball }}"
+        mode: '0644'
+      when: not cribl_installed.stat.exists
+      register: cribl_download
+
+    - name: Extract Cribl to /opt
+      unarchive:
+        src: "/tmp/{{ cribl_tarball }}"
+        dest: /opt
+        remote_src: yes
+        owner: "{{ cribl_user }}"
+        group: "{{ cribl_group }}"
+      when: not cribl_installed.stat.exists
+
+    - name: Set ownership of Cribl directory
+      file:
+        path: "{{ cribl_home }}"
+        owner: "{{ cribl_user }}"
+        group: "{{ cribl_group }}"
+        recurse: yes
+        state: directory
+
+    - name: Create Cribl data directory
+      file:
+        path: "{{ cribl_home }}/data"
+        state: directory
+        owner: "{{ cribl_user }}"
+        group: "{{ cribl_group }}"
+        mode: '0755'
+
+    - name: Create Cribl systemd service file
+      template:
+        src: cribl.service.j2
+        dest: /etc/systemd/system/cribl.service
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Ensure Cribl service is enabled and started
+      systemd:
+        name: cribl
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Clean up downloaded tarball
+      file:
+        path: "/tmp/{{ cribl_tarball }}"
+        state: absent
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+

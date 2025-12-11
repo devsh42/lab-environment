@@ -1,0 +1,125 @@
+---
+- name: Install and Configure Splunk
+  hosts: splunk_servers
+  become: yes
+  vars:
+    splunk_user: splunk
+    splunk_group: splunk
+    splunk_home: /opt/splunk
+    splunk_version: "9.1.2"  # Update to desired version
+    splunk_tarball: "splunk-{{ splunk_version }}-{{ ansible_system | lower }}-{{ ansible_architecture }}-{{ splunk_build_type }}.tgz"
+    splunk_build_type: "linux"  # linux or linux2 for RHEL/CentOS
+    splunk_download_url: "https://download.splunk.com/products/splunk/releases/{{ splunk_version }}/{{ splunk_build_type }}/{{ splunk_tarball }}"
+    splunk_admin_password: "changeme"  # Change this to a secure password
+
+  tasks:
+    - name: Check if Splunk is already installed
+      stat:
+        path: "{{ splunk_home }}/bin/splunk"
+      register: splunk_installed
+
+    - name: Create splunk group
+      group:
+        name: "{{ splunk_group }}"
+        state: present
+        system: yes
+
+    - name: Create splunk user
+      user:
+        name: "{{ splunk_user }}"
+        group: "{{ splunk_group }}"
+        home: "{{ splunk_home }}"
+        shell: /bin/bash
+        system: yes
+        create_home: yes
+        state: present
+
+    - name: Install required packages (Debian/Ubuntu)
+      apt:
+        name:
+          - wget
+          - curl
+          - tar
+          - gzip
+        state: present
+        update_cache: yes
+      when: ansible_pkg_mgr == 'apt'
+
+    - name: Create /opt directory if it doesn't exist
+      file:
+        path: /opt
+        state: directory
+        mode: '0755'
+
+    - name: Download Splunk tarball
+      get_url:
+        url: "{{ splunk_download_url }}"
+        dest: "/tmp/{{ splunk_tarball }}"
+        mode: '0644'
+      when: not splunk_installed.stat.exists
+      register: splunk_download
+
+    - name: Extract Splunk to /opt
+      unarchive:
+        src: "/tmp/{{ splunk_tarball }}"
+        dest: /opt
+        remote_src: yes
+        owner: "{{ splunk_user }}"
+        group: "{{ splunk_group }}"
+      when: not splunk_installed.stat.exists
+
+    - name: Set ownership of Splunk directory
+      file:
+        path: "{{ splunk_home }}"
+        owner: "{{ splunk_user }}"
+        group: "{{ splunk_group }}"
+        recurse: yes
+        state: directory
+
+    - name: Accept Splunk license
+      command: "{{ splunk_home }}/bin/splunk start --accept-license --answer-yes --no-prompt"
+      become_user: "{{ splunk_user }}"
+      environment:
+        SPLUNK_HOME: "{{ splunk_home }}"
+      when: not splunk_installed.stat.exists
+      changed_when: false
+
+    - name: Set Splunk to start at boot
+      command: "{{ splunk_home }}/bin/splunk enable boot-start -user {{ splunk_user }} --accept-license --answer-yes --no-prompt"
+      become_user: "{{ splunk_user }}"
+      environment:
+        SPLUNK_HOME: "{{ splunk_home }}"
+      when: not splunk_installed.stat.exists
+
+    - name: Set Splunk admin password
+      command: "{{ splunk_home }}/bin/splunk edit user admin -password {{ splunk_admin_password }} -auth admin:changeme"
+      become_user: "{{ splunk_user }}"
+      environment:
+        SPLUNK_HOME: "{{ splunk_home }}"
+      when: not splunk_installed.stat.exists
+      no_log: true
+
+    - name: Create Splunk systemd service file
+      template:
+        src: splunk.service.j2
+        dest: /etc/systemd/system/splunk.service
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Ensure Splunk service is enabled and started
+      systemd:
+        name: splunk
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Clean up downloaded tarball
+      file:
+        path: "/tmp/{{ splunk_tarball }}"
+        state: absent
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+

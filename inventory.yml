@@ -1,0 +1,13 @@
+all:
+  children:
+    splunk_servers:
+      hosts:
+        splunk-server:
+          ansible_host: 192.168.1.10  # Update with your Splunk server IP
+          ansible_user: ansible  # Update with your SSH user
+    cribl_servers:
+      hosts:
+        cribl-server:
+          ansible_host: 192.168.1.11  # Update with your Cribl server IP
+          ansible_user: ansible  # Update with your SSH user
+

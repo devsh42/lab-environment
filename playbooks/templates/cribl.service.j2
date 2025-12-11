@@ -1,0 +1,20 @@
+[Unit]
+Description=Cribl Stream
+After=network.target
+
+[Service]
+Type=simple
+User={{ cribl_user }}
+Group={{ cribl_group }}
+WorkingDirectory={{ cribl_home }}
+Environment="CRIBL_HOME={{ cribl_home }}"
+ExecStart={{ cribl_home }}/bin/cribl server
+ExecStop=/bin/kill -SIGTERM $MAINPID
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
