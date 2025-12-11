@@ -6,9 +6,10 @@
     cribl_user: cribl
     cribl_group: cribl
     cribl_home: /opt/cribl
-    cribl_version: "4.3.0"  # Update to desired version
-    cribl_tarball: "cribl-{{ cribl_version }}-{{ ansible_system | lower }}-{{ ansible_architecture }}.tar.gz"
-    cribl_download_url: "https://cdn.cribl.io/dl/{{ cribl_version }}/{{ cribl_tarball }}"
+    cribl_version: "4.15.0"  # Update to desired version
+    cribl_tarball: "cribl-4.15.0-f275b803-linux-x64.tgz"
+    cribl_download_url: "https://cdn.cribl.io/dl/4.15.0/cribl-4.15.0-f275b803-linux-x64.tgz"
+
 
   tasks:
     - name: Check if Cribl is already installed

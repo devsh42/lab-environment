@@ -3,11 +3,11 @@ all:
     splunk_servers:
       hosts:
         splunk-server:
-          ansible_host: splunk # Update with your Splunk server IP
-          ansible_user: root   # Update with your SSH user (root or existing user)
+          ansible_host: splunk
+          ansible_user: root
     cribl_servers:
       hosts:
         cribl-server:
-          ansible_host: cribl # Update with your Cribl server IP
-          ansible_user: root  # Update with your SSH user (root or existing user)
+          ansible_host: cribl
+          ansible_user: root
 

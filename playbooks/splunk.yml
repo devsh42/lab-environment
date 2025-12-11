@@ -6,17 +6,29 @@
     splunk_user: splunk
     splunk_group: splunk
     splunk_home: /opt/splunk
-    splunk_version: "9.1.2"  # Update to desired version
-    splunk_tarball: "splunk-{{ splunk_version }}-{{ ansible_system | lower }}-{{ ansible_architecture }}-{{ splunk_build_type }}.tgz"
-    splunk_build_type: "linux"  # linux or linux2 for RHEL/CentOS
+    splunk_version: "10.0.2"  #
+    splunk_tarball: "splunk-10.0.2-e2d18b4767e9-linux-amd64.tgz"
+    splunk_build_type: "linux"
     splunk_download_url: "https://download.splunk.com/products/splunk/releases/{{ splunk_version }}/{{ splunk_build_type }}/{{ splunk_tarball }}"
-    splunk_admin_password: "changeme"  # Change this to a secure password
+    splunk_admin_password: "changeme"
 
   tasks:
     - name: Check if Splunk is already installed
       stat:
         path: "{{ splunk_home }}/bin/splunk"
       register: splunk_installed
+
+    - name: Install required packages (Debian/Ubuntu)
+      apt:
+        name:
+          - wget
+          - curl
+          - tar
+          - gzip
+          - sudo
+        state: present
+        update_cache: yes
+      when: ansible_pkg_mgr == 'apt'
 
     - name: Create splunk group
       group:
@@ -33,17 +45,12 @@
         system: yes
         create_home: yes
         state: present
-
-    - name: Install required packages (Debian/Ubuntu)
-      apt:
-        name:
-          - wget
-          - curl
-          - tar
-          - gzip
-        state: present
-        update_cache: yes
-      when: ansible_pkg_mgr == 'apt'
+    
+    - name: Add user to sudo group
+      user:
+        name: "{{ splunk_user }}" 
+        groups: sudo
+        append: yes
 
     - name: Create /opt directory if it doesn't exist
       file:
