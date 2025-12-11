@@ -3,8 +3,7 @@
 # Override these in host_vars or group_vars as needed
 
 # Bootstrap configuration
-ansible_bootstrap_user: ansible
-ansible_bootstrap_group: ansible
+# SSH keys will be configured for the user specified in inventory.yml (ansible_user)
 ansible_ssh_public_key_file: "~/.ssh/id_rsa.pub"
 ansible_ssh_public_keys: []
 ansible_sudo_nopasswd: true

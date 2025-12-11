@@ -67,17 +67,11 @@ ansible-playbook playbooks/bootstrap.yml
 ```
 
 This will:
-- Create the `ansible` user on all hosts
-- Install sudo package
-- Configure SSH authorized keys
-- Set up sudo nopasswd access for the ansible user
+- Install sudo package (if not already installed)
+- Configure SSH authorized keys for the user specified in inventory
+- Set up sudo nopasswd access for the current user
 
-#### Step 4: Update Inventory After Bootstrap
-
-After successful bootstrap, update `inventory.yml` to use the `ansible` user:
-```yaml
-ansible_user: ansible  # Changed from 'root'
-```
+**Note**: The bootstrap playbook configures the user specified in `inventory.yml` (ansible_user). No new user is created.
 
 ### 2. Configure Variables
 
@@ -97,10 +91,9 @@ ansible_user: ansible  # Changed from 'root'
    ```bash
    ansible-playbook playbooks/bootstrap.yml
    ```
+   This configures SSH keys and sudo access for the user specified in your inventory.
 
-2. **Update inventory** to use `ansible` user (if not already done)
-
-3. **Install services**:
+2. **Install services**:
    ```bash
    ansible-playbook site.yml
    ```
@@ -138,11 +131,12 @@ ansible-playbook playbooks/cribl.yml
 ## What the Playbooks Do
 
 ### Bootstrap (`bootstrap.yml`)
-1. Creates `ansible` user and group
-2. Installs sudo package (if not present)
-3. Configures SSH authorized keys for the ansible user
-4. Sets up sudo nopasswd access (or password-based if configured)
-5. Ensures proper permissions on SSH and sudoers files
+1. Installs sudo package (if not present)
+2. Configures SSH authorized keys for the user specified in inventory (ansible_user)
+3. Sets up sudo nopasswd access (or password-based if configured) for the current user
+4. Ensures proper permissions on SSH and sudoers files
+
+**Note**: No new user is created. The playbook configures the existing user specified in `inventory.yml`.
 
 ### Splunk Installation (`splunk.yml`)
 1. Creates `splunk` user and group
@@ -216,13 +210,13 @@ sudo systemctl start|stop|restart cribl
 ### First Time Setup (New Servers)
 
 1. **Prepare SSH access**: Ensure you can SSH to servers as root or a user with sudo privileges
-2. **Update inventory**: Edit `inventory.yml` with your server IPs and set `ansible_user: root` (or your sudo user)
+2. **Update inventory**: Edit `inventory.yml` with your server IPs and set `ansible_user: root` (or your existing sudo user)
 3. **Run bootstrap**:
    ```bash
    ansible-playbook playbooks/bootstrap.yml -k  # -k prompts for SSH password if needed
    ```
-4. **Update inventory**: Change `ansible_user: root` to `ansible_user: ansible` in `inventory.yml`
-5. **Install services**:
+   This will configure SSH keys and sudo access for the user specified in inventory.
+4. **Install services**:
    ```bash
    ansible-playbook site.yml
    ```

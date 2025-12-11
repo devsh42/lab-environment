@@ -3,9 +3,6 @@
   hosts: all
   become: yes
   vars:
-    ansible_bootstrap_user: ansible
-    ansible_bootstrap_group: ansible
-    ansible_bootstrap_shell: /bin/bash
     ansible_ssh_public_keys: []
     # Example: ansible_ssh_public_keys:
     #   - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC..."
@@ -15,43 +12,46 @@
     ansible_sudo_nopasswd: true
 
   tasks:
-    - name: Check if ansible user already exists
-      command: id -u "{{ ansible_bootstrap_user }}"
-      register: ansible_user_exists
+    - name: Get user home directory
+      command: getent passwd "{{ ansible_user }}" | cut -d: -f6
+      register: user_home_cmd
+      changed_when: false
       failed_when: false
+
+    - name: Set user home directory
+      set_fact:
+        user_home: "{{ user_home_cmd.stdout | trim }}"
+      when: user_home_cmd.rc == 0 and user_home_cmd.stdout | length > 0
+
+    - name: Set user home directory (fallback)
+      set_fact:
+        user_home: "{{ '/root' if ansible_user == 'root' else '/home/' + ansible_user }}"
+      when: user_home is not defined
+
+    - name: Get user group
+      command: id -gn "{{ ansible_user }}"
+      register: user_group_cmd
       changed_when: false
 
-    - name: Create ansible group
-      group:
-        name: "{{ ansible_bootstrap_group }}"
-        state: present
-        system: no
+    - name: Set user group
+      set_fact:
+        user_group: "{{ user_group_cmd.stdout | trim }}"
+      when: user_group_cmd.rc == 0
 
-    - name: Create ansible user
-      user:
-        name: "{{ ansible_bootstrap_user }}"
-        group: "{{ ansible_bootstrap_group }}"
-        shell: "{{ ansible_bootstrap_shell }}"
-        create_home: yes
-        home: "/home/{{ ansible_bootstrap_user }}"
-        state: present
-        system: no
-      when: ansible_user_exists.rc != 0
-
-    - name: Ensure ansible user home directory exists
+    - name: Ensure user home directory exists
       file:
-        path: "/home/{{ ansible_bootstrap_user }}"
+        path: "{{ user_home }}"
         state: directory
-        owner: "{{ ansible_bootstrap_user }}"
-        group: "{{ ansible_bootstrap_group }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ user_group }}"
         mode: '0755'
 
-    - name: Create .ssh directory for ansible user
+    - name: Create .ssh directory for current user
       file:
-        path: "/home/{{ ansible_bootstrap_user }}/.ssh"
+        path: "{{ user_home }}/.ssh"
         state: directory
-        owner: "{{ ansible_bootstrap_user }}"
-        group: "{{ ansible_bootstrap_group }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ user_group }}"
         mode: '0700'
 
     - name: Read SSH public key from file (if file specified)
@@ -75,7 +75,7 @@
 
     - name: Add SSH authorized keys
       authorized_key:
-        user: "{{ ansible_bootstrap_user }}"
+        user: "{{ ansible_user }}"
         state: present
         key: "{{ item }}"
         exclusive: false
@@ -84,9 +84,9 @@
 
     - name: Set correct permissions on authorized_keys file
       file:
-        path: "/home/{{ ansible_bootstrap_user }}/.ssh/authorized_keys"
-        owner: "{{ ansible_bootstrap_user }}"
-        group: "{{ ansible_bootstrap_group }}"
+        path: "{{ user_home }}/.ssh/authorized_keys"
+        owner: "{{ ansible_user }}"
+        group: "{{ user_group }}"
         mode: '0600'
       when: ansible_ssh_public_keys | length > 0
 
@@ -103,29 +103,29 @@
         state: present
       when: ansible_pkg_mgr == 'yum' or ansible_pkg_mgr == 'dnf'
 
-    - name: Check if sudoers file entry exists for ansible user
+    - name: Check if sudoers file entry exists for current user
       lineinfile:
-        path: /etc/sudoers.d/ansible
-        regexp: '^{{ ansible_bootstrap_user }}'
+        path: "/etc/sudoers.d/{{ ansible_user }}"
+        regexp: '^{{ ansible_user }}'
         state: absent
       check_mode: yes
       register: sudoers_check
       changed_when: false
       failed_when: false
 
-    - name: Create sudoers file for ansible user (nopasswd)
+    - name: Create sudoers file for current user (nopasswd)
       lineinfile:
-        path: /etc/sudoers.d/ansible
-        line: "{{ ansible_bootstrap_user }} ALL=(ALL) NOPASSWD: ALL"
+        path: "/etc/sudoers.d/{{ ansible_user }}"
+        line: "{{ ansible_user }} ALL=(ALL) NOPASSWD: ALL"
         create: yes
         mode: '0440'
         validate: 'visudo -cf %s'
       when: ansible_sudo_nopasswd | bool
 
-    - name: Create sudoers file for ansible user (with password)
+    - name: Create sudoers file for current user (with password)
       lineinfile:
-        path: /etc/sudoers.d/ansible
-        line: "{{ ansible_bootstrap_user }} ALL=(ALL) ALL"
+        path: "/etc/sudoers.d/{{ ansible_user }}"
+        line: "{{ ansible_user }} ALL=(ALL) ALL"
         create: yes
         mode: '0440'
         validate: 'visudo -cf %s'
@@ -146,8 +146,7 @@
       debug:
         msg:
           - "Bootstrap completed successfully!"
-          - "Ansible user '{{ ansible_bootstrap_user }}' has been created"
-          - "SSH keys have been configured"
-          - "Sudo access has been configured"
-          - "You can now use '{{ ansible_bootstrap_user }}' user for Ansible connections"
+          - "SSH keys have been configured for user '{{ ansible_user }}'"
+          - "Sudo access has been configured for user '{{ ansible_user }}'"
+          - "User '{{ ansible_user }}' is ready for Ansible management"
 
