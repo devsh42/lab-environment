@@ -1,0 +1,16 @@
+---
+# Default variables for all hosts
+# Override these in host_vars or group_vars as needed
+
+# Bootstrap configuration
+ansible_bootstrap_user: ansible
+ansible_bootstrap_group: ansible
+ansible_ssh_public_key_file: "~/.ssh/id_rsa.pub"
+ansible_ssh_public_keys: []
+ansible_sudo_nopasswd: true
+
+# Example: To add multiple SSH keys, uncomment and modify:
+# ansible_ssh_public_keys:
+#   - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... user@host"
+#   - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... user@host"
+
